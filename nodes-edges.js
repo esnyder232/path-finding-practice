@@ -8,8 +8,8 @@ async function run()
 	var nodes = [];
 	var edges = [];
 
-	var mapWidth = 7;
-	var mapHeight = 7;
+	var mapWidth = 30;
+	var mapHeight = 15;
 	
 	var worldTileId = 0;
 	var nodeId = 0;
@@ -107,33 +107,52 @@ async function run()
 	// world[2][6].type = "wall";
 	
 
-	//little maze
-	world[2][1].type = "wall";
-	world[1][1].type = "wall";
-	world[2][3].type = "wall";
-	world[2][6].type = "wall";
+	// //little maze
+	//var startNode = nodes[6][0];
+	// world[2][1].type = "wall";
+	// world[1][1].type = "wall";
+	// world[2][3].type = "wall";
+	// world[2][6].type = "wall";
 
-	world[0][5].type = "wall";
-	world[1][5].type = "wall";
+	// world[0][5].type = "wall";
+	// world[1][5].type = "wall";
 
-	world[5][5].type = "wall";
-	world[6][5].type = "wall";
+	// world[5][5].type = "wall";
+	// world[6][5].type = "wall";
 
-	world[3][3].type = "wall";
+	// world[3][3].type = "wall";
 
-	world[5][3].type = "wall";
-	world[5][2].type = "wall";
+	// world[5][3].type = "wall";
+	// world[5][2].type = "wall";
 
-	world[6][1].type = "wall";
+	// world[6][1].type = "wall";
+
+
+	//redblobgames example
+	var startNode = nodes[7][8];
+	makeWall(world, nodes[3][3], nodes[11][4]);
+	makeWall(world, nodes[4][13], nodes[14][14]);
+	makeWall(world, nodes[0][21], nodes[4][22]);
+	makeWall(world, nodes[5][21], nodes[7][25]);
+
 
 	console.log("WORLD:");
 	drawWorld(world, nodes);
 
-	//draw 1 edge map		
-	var startNode = nodes[6][0];
+	//draw an edge map
 	var edgeMap = breadthFirstEdgeMap(world, nodes, edges, startNode);
 	console.log("BREADTH FIRST EDGE MAP:");
 	drawWorld(world, nodes, edgeMap);
+
+
+	//try a search
+	var searchResults = breadthFirstSearch(world, nodes, edges, startNode, nodes[4][12]);
+	console.log("BREADTH FIRST SEARCH:");
+	drawWorld(world, nodes, searchResults.edges);
+
+	var searchResults = breadthFirstSearch(world, nodes, edges, startNode, nodes[4][23]);
+	console.log("BREADTH FIRST SEARCH:");
+	drawWorld(world, nodes, searchResults.edges);
 
 
 	//perform an edge map for every node (just to see what happens)
@@ -155,6 +174,18 @@ async function run()
 
 	console.log('--- nodes-only DONE ---');
 }
+
+function makeWall(world, tlNode, brNode)
+{
+	for(var j = tlNode.y; j <= brNode.y; j++)
+	{
+		for(var i = tlNode.x; i <= brNode.x; i++)
+		{
+			world[j][i].type = "wall";
+		}
+	}
+}
+
 
 //draws the world with the nodes hihglighted and edges shown
 //example
@@ -206,7 +237,7 @@ function drawWorld(world, nodes, edges)
 			for(var i = 0; i < drawCells[j].length; i++)
 			{
 				//y axis
-				if(i == drawCells.length-1)
+				if(i == drawCells[j].length-1)
 				{
 					drawCells[j][i].topPart = "     ";
 					drawCells[j][i].midPart = "  " + j + "  ";
@@ -225,6 +256,10 @@ function drawWorld(world, nodes, edges)
 					var worldTile = world[j][i];
 					var node = nodes[j][i];
 
+					if(!world[j][i])
+					{
+						var stopHere = true;
+					}
 					if(world[j][i].type == "wall")
 					{
 						graphic = "X"
@@ -272,6 +307,8 @@ function drawWorld(world, nodes, edges)
 	}
 }
 
+
+
 //returns the nodes and edges from start using breadthFirst. Basically returns an edge map to every node from the start point.
 function breadthFirstEdgeMap(world, nodes, edges, nodeStart)
 {
@@ -304,11 +341,11 @@ function breadthFirstEdgeMap(world, nodes, edges, nodeStart)
 			{
 				//if the neighbor hasn't been visited yet and is not already in the frontier, add it to the frontier
 				var visitedNode = visited.find((x) => {return x.id === neighborNodeInQuestion.id;});
-				var frontierNode = frontier.find((x) => {return x.id === neighborNodeInQuestion.id;});
-				if(!visitedNode && !frontierNode)
+				if(!visitedNode)
 				{
 					//add its neighbors to the frontier
 					frontier.push(neighborNodeInQuestion);
+					visited.push(neighborNodeInQuestion);
 								
 					//add the one edge to the edge map
 					var edgeToAdd = edges.find((x) => {return x.nodeFrom.id === neighborNodeInQuestion.id && x.nodeTo.id === currentFrontierNode.id})
@@ -321,9 +358,128 @@ function breadthFirstEdgeMap(world, nodes, edges, nodeStart)
 		}
 	}
 
-
 	return edgeMap;
 }
+
+
+
+//returns the nodes and edges from start to the end using breadthFirst
+function breadthFirstSearch(world, nodes, edges, nodeStart, nodeEnd)
+{
+	var edgeMap = [];
+	var path = {
+		nodes: [],
+		edges: []
+	}
+
+	var frontier = [];
+	var visited = [];
+
+	frontier.push(nodeStart);
+	var nodeFound = false;
+
+	while(frontier.length > 0 && !nodeFound)
+	{
+		var currentFrontierNode = frontier.shift();
+
+		//add it to visitor
+		visited.push(currentFrontierNode);
+
+		if(currentFrontierNode.id === nodeEnd.id)
+		{
+			nodeFound = true;
+		}
+
+		if(!nodeFound)
+		{
+			//get any edges it may have (and therefore its neighbors)
+			var currentFrontierNodeEdges = edges.filter((x) => {return x.nodeFrom.id === currentFrontierNode.id;});
+			for(var j = 0; j < currentFrontierNodeEdges.length; j++)
+			{
+				//check first to see if its impassibla (wall)
+				var neighborNodeInQuestion = currentFrontierNodeEdges[j].nodeTo;
+				var worldTile = world[neighborNodeInQuestion.y][neighborNodeInQuestion.x]
+				if(worldTile.type === "wall")
+				{
+					//do nothing
+				}
+				else
+				{
+					//if the neighbor hasn't been visited yet and is not already in the frontier, add it to the frontier
+					var visitedNode = visited.find((x) => {return x.id === neighborNodeInQuestion.id;});
+					if(!visitedNode)
+					{
+						//add its neighbors to the frontier
+						frontier.push(neighborNodeInQuestion);
+						visited.push(neighborNodeInQuestion);
+									
+						//add the one edge to the edge map
+						var edgeToAdd = edges.find((x) => {return x.nodeFrom.id === neighborNodeInQuestion.id && x.nodeTo.id === currentFrontierNode.id})
+						if(edgeToAdd)
+						{
+							edgeMap.push(edgeToAdd)
+						}
+					}
+				}
+			}
+		}
+	}
+
+	//if the node was found, find it in the visited nodes, and work backwards to the start
+	if(nodeFound) {
+
+		var startNodeFound = false;
+		var currentNode = nodeEnd;
+		var tempPathNodes = [];
+		var tempPathEdges = [];
+
+		//first get the actual path from the edges visited from end to start
+		while(!startNodeFound)
+		{
+			//brute force searching method. meh, whatever
+			if(currentNode.id === nodeStart.id)
+			{
+				startNodeFound = true;
+			}
+			else
+			{
+				//there should be exactly 1 edge per node
+				var nextEdge = edgeMap.find((x) => {return x.nodeFrom.id === currentNode.id;});
+				if(nextEdge)
+				{
+					tempPathNodes.push(currentNode);
+					tempPathEdges.push(nextEdge);
+	
+					currentNode = nextEdge.nodeTo;
+				}
+			}
+		}
+
+
+		//now that we have the path, reverse the nodes/edges so that we can rebuild it from start to end
+		for(var i = tempPathEdges.length-1; i >= 0; i--)
+		{
+			path.nodes.push(tempPathEdges[i].nodeTo);
+
+			//find the edge that is the opposite way
+			var oppositeEdge = edges.find((x) => {return x.nodeTo === tempPathEdges[i].nodeFrom && x.nodeFrom === tempPathEdges[i].nodeTo});
+			if(oppositeEdge)
+			{
+				path.edges.push(oppositeEdge);
+			}
+		}
+	}
+
+	//debugging
+	path.edgeMap = edgeMap;
+
+	return path;
+}
+
+
+
+
+
 
 
 
