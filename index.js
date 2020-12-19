@@ -1,6 +1,6 @@
 const BreadthFirstSearch = require('./breadth-first-search.js');
 const CameFromSearch = require('./came-from-search.js');
-const NodesOnly = require('./nodes-only.js');
+const NodesEdges = require('./nodes-edges.js');
 
 console.log(BreadthFirstSearch);
 async function run()
@@ -8,7 +8,7 @@ async function run()
 	console.log('===== path-finding-practice START =====');
 	// await BreadthFirstSearch.run();
 	// await CameFromSearch.run();
-	await NodesOnly.run();
+	await NodesEdges.run();
 	console.log('===== path-finding-practice DONE =====');
 }
 
