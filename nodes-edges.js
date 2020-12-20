@@ -152,13 +152,18 @@ async function run()
 	// console.log("BREADTH FIRST SEARCH:");
 	// drawWorld(world, nodes, searchResults.edges);
 
-	// var searchResults = breadthFirstSearch(world, nodes, edges, startNode, nodes[4][23]);
-	// console.log("BREADTH FIRST SEARCH:");
-	// drawWorld(world, nodes, searchResults.edges);
-
-	var searchResults = dijkstraSearch(world, nodes, edges, startNode, nodes[3][8]);
-	console.log("DIJKSTRA SEARCH:");
+	var searchResults = breadthFirstSearch(world, nodes, edges, startNode, nodes[4][23]);
+	console.log("BREADTH FIRST SEARCH:");
 	drawWorld(world, nodes, searchResults.edges);
+
+	// var searchResults = dijkstraSearch(world, nodes, edges, startNode, nodes[3][8]);
+	// console.log("DIJKSTRA SEARCH:");
+	// drawWorld(world, nodes, searchResults.edgeMap);
+
+	var searchResults = greedyBestFirstSearch(world, nodes, edges, startNode,  nodes[4][23]);
+	console.log("GREEDY BEST FIRST SEARCH:");
+	drawWorld(world, nodes, searchResults.edges);
+
 
 
 
@@ -624,6 +629,135 @@ function dijkstraSearch(world, nodes, edges, nodeStart, nodeEnd)
 	return path;
 }
 
+//returns the nodes and edges from start to the end using greedy best first searching
+function greedyBestFirstSearch(world, nodes, edges, nodeStart, nodeEnd)
+{
+	var edgeMap = [];
+	var path = {
+		nodes: [],
+		edges: []
+	}
+
+	var frontier = [];
+	var visited = [];
+
+	frontier.push({node: nodeStart, heuristic: 0});
+	visited.push({node: nodeStart, heuristic: 0});
+	var nodeFound = false;
+
+	while(frontier.length > 0 && !nodeFound)
+	{
+		//sort it so the lowest heuristic is in front
+		frontier.sort((a, b) => {return a.heuristic - b.heuristic;});
+		var currentFrontierNode = frontier.shift();
+
+		if(currentFrontierNode.node.id === nodeEnd.id)
+		{
+			nodeFound = true;
+		}
+
+		if(!nodeFound)
+		{
+			//get any edges it may have (and therefore its neighbors)
+			var currentFrontierNodeEdges = edges.filter((x) => {return x.nodeFrom.id === currentFrontierNode.node.id;});
+			for(var j = 0; j < currentFrontierNodeEdges.length; j++)
+			{
+				//check first to see if its impassibla (wall)
+				var neighborNodeInQuestion = currentFrontierNodeEdges[j].nodeTo;
+				var worldTile = world[neighborNodeInQuestion.y][neighborNodeInQuestion.x]
+				if(worldTile.type === "wall")
+				{
+					//do nothing
+				}
+				else
+				{
+					//if the neghibor hasn't been visited, or the last known heuristic to get TO the neighbor is higher than the current heuristic, then add it to the frontier
+					var visitedNode = visited.find((x) => {return x.node.id === neighborNodeInQuestion.id;});
+
+					//calculate heuristic
+					var heuristic = bestGreedyHeuristicFunction(neighborNodeInQuestion, nodeEnd);
+
+					if(!visitedNode || visitedNode.heuristic > heuristic)
+					{
+						//add its neighbors to the frontier
+						frontier.push({node: neighborNodeInQuestion, heuristic: heuristic});
+						visited.push({node: neighborNodeInQuestion, heuristic: heuristic});
+									
+						//add the one edge to the edge map
+						var edgeToAdd = edges.find((x) => {return x.nodeFrom.id === neighborNodeInQuestion.id && x.nodeTo.id === currentFrontierNode.node.id})
+						if(edgeToAdd)
+						{
+							edgeMap.push(edgeToAdd)
+						}
+
+						//do another check to see if its the end node.
+						if(currentFrontierNode.node.id === nodeEnd.id)
+						{
+							nodeFound = true;
+							break;
+						}
+					}
+				}
+			}
+		}
+	}
+
+	//if the node was found, find it in the visited nodes, and work backwards to the start
+	if(nodeFound) {
+
+		var startNodeFound = false;
+		var currentNode = nodeEnd;
+		var tempPathNodes = [];
+		var tempPathEdges = [];
+
+		//first get the actual path from the edges visited from end to start
+		while(!startNodeFound)
+		{
+			//brute force searching method. meh, whatever
+			if(currentNode.id === nodeStart.id)
+			{
+				startNodeFound = true;
+			}
+			else
+			{
+				//there should be exactly 1 edge per node
+				var nextEdge = edgeMap.find((x) => {return x.nodeFrom.id === currentNode.id;});
+				if(nextEdge)
+				{
+					tempPathNodes.push(currentNode);
+					tempPathEdges.push(nextEdge);
+	
+					currentNode = nextEdge.nodeTo;
+				}
+			}
+		}
+
+
+		//now that we have the path, reverse the nodes/edges so that we can rebuild it from start to end
+		for(var i = tempPathEdges.length-1; i >= 0; i--)
+		{
+			path.nodes.push(tempPathEdges[i].nodeTo);
+
+			//find the edge that is the opposite way
+			var oppositeEdge = edges.find((x) => {return x.nodeTo === tempPathEdges[i].nodeFrom && x.nodeFrom === tempPathEdges[i].nodeTo});
+			if(oppositeEdge)
+			{
+				path.edges.push(oppositeEdge);
+			}
+		}
+	}
+
+	//debugging
+	path.edgeMap = edgeMap;
+
+	return path;
+}
+
+
+function bestGreedyHeuristicFunction(nodeStart, nodeTarget)
+{
+	return Math.abs(nodeTarget.x - nodeStart.x) + Math.abs(nodeTarget.y - nodeStart.y);
+}
 
 
 
