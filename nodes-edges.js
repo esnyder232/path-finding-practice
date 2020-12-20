@@ -130,11 +130,13 @@ async function run()
 
 	//redblobgames example
 	var startNode = nodes[7][8];
-	makeWall(world, nodes[3][3], nodes[11][4]);
-	makeWall(world, nodes[4][13], nodes[14][14]);
-	makeWall(world, nodes[0][21], nodes[4][22]);
-	makeWall(world, nodes[5][21], nodes[7][25]);
+	makeWorldBlockType(world, nodes[3][3], nodes[11][4], 'wall');
+	makeWorldBlockType(world, nodes[4][13], nodes[14][14], 'wall');
+	makeWorldBlockType(world, nodes[0][21], nodes[4][22], 'wall');
+	makeWorldBlockType(world, nodes[5][21], nodes[7][25], 'wall');
 
+	//makeWorldBlockType(world, nodes[4][7], nodes[5][9], 'water');
+	makeWorldBlockType(world, nodes[5][6], nodes[5][10], 'water');
 
 	console.log("WORLD:");
 	drawWorld(world, nodes);
@@ -146,13 +148,18 @@ async function run()
 
 
 	//try a search
-	var searchResults = breadthFirstSearch(world, nodes, edges, startNode, nodes[4][12]);
-	console.log("BREADTH FIRST SEARCH:");
+	// var searchResults = breadthFirstSearch(world, nodes, edges, startNode, nodes[4][12]);
+	// console.log("BREADTH FIRST SEARCH:");
+	// drawWorld(world, nodes, searchResults.edges);
+
+	// var searchResults = breadthFirstSearch(world, nodes, edges, startNode, nodes[4][23]);
+	// console.log("BREADTH FIRST SEARCH:");
+	// drawWorld(world, nodes, searchResults.edges);
+
+	var searchResults = dijkstraSearch(world, nodes, edges, startNode, nodes[3][8]);
+	console.log("DIJKSTRA SEARCH:");
 	drawWorld(world, nodes, searchResults.edges);
 
-	var searchResults = breadthFirstSearch(world, nodes, edges, startNode, nodes[4][23]);
-	console.log("BREADTH FIRST SEARCH:");
-	drawWorld(world, nodes, searchResults.edges);
 
 
 	//perform an edge map for every node (just to see what happens)
@@ -175,13 +182,13 @@ async function run()
 	console.log('--- nodes-only DONE ---');
 }
 
-function makeWall(world, tlNode, brNode)
+function makeWorldBlockType(world, tlNode, brNode, type)
 {
 	for(var j = tlNode.y; j <= brNode.y; j++)
 	{
 		for(var i = tlNode.x; i <= brNode.x; i++)
 		{
-			world[j][i].type = "wall";
+			world[j][i].type = type;
 		}
 	}
 }
@@ -260,9 +267,14 @@ function drawWorld(world, nodes, edges)
 					{
 						var stopHere = true;
 					}
+
 					if(world[j][i].type == "wall")
 					{
 						graphic = "X"
+					}
+					else if(world[j][i].type == "water")
+					{
+						graphic = "w"
 					}
 
 					//don't care.....
@@ -477,320 +489,140 @@ function breadthFirstSearch(world, nodes, edges, nodeStart, nodeEnd)
 }
 
 
+//returns the nodes and edges from start to the end using dijkstra's algorithm
+function dijkstraSearch(world, nodes, edges, nodeStart, nodeEnd)
+{
+	var edgeMap = [];
+	var path = {
+		nodes: [],
+		edges: []
+	}
 
+	var frontier = [];
+	var visited = [];
 
+	frontier.push({node: nodeStart, costSoFar: 0});
+	visited.push({node: nodeStart, costSoFar: 0});
+	var nodeFound = false;
 
+	while(frontier.length > 0 && !nodeFound)
+	{
+		//sort it so the lowest cost is in front
+		frontier.sort((a, b) => {return a.costSoFar - b.costSoFar;});
+		var currentFrontierNode = frontier.shift();
 
+		if(currentFrontierNode.node.id === nodeEnd.id)
+		{
+			nodeFound = true;
+		}
 
+		if(!nodeFound)
+		{
+			//get any edges it may have (and therefore its neighbors)
+			var currentFrontierNodeEdges = edges.filter((x) => {return x.nodeFrom.id === currentFrontierNode.node.id;});
+			for(var j = 0; j < currentFrontierNodeEdges.length; j++)
+			{
+				//check first to see if its impassibla (wall)
+				var neighborNodeInQuestion = currentFrontierNodeEdges[j].nodeTo;
+				var worldTile = world[neighborNodeInQuestion.y][neighborNodeInQuestion.x]
+				if(worldTile.type === "wall")
+				{
+					//do nothing
+				}
+				else
+				{
+					//if the neghibor hasn't been visited, or the last known cost to get TO the neighbor is higher than the current cost, then add it to the frontier
+					var currentCostSoFar = currentFrontierNode.costSoFar;
+					var visitedNode = visited.find((x) => {return x.node.id === neighborNodeInQuestion.id;});
 
+					//calculate movement cost
+					var movementCost = 1;
+					if(worldTile.type == "open")
+					{
+						movementCost = 1;
+					}
+					else if (worldTile.type == "water")
+					{
+						movementCost = 5;
+					}
 
+					var newCost = currentCostSoFar + movementCost;
 
+					if(!visitedNode || visitedNode.costSoFar > newCost)
+					{
+						//add its neighbors to the frontier
+						frontier.push({node: neighborNodeInQuestion, costSoFar: currentCostSoFar + movementCost});
+						visited.push({node: neighborNodeInQuestion, costSoFar: currentCostSoFar + movementCost});
+									
+						//add the one edge to the edge map
+						var edgeToAdd = edges.find((x) => {return x.nodeFrom.id === neighborNodeInQuestion.id && x.nodeTo.id === currentFrontierNode.node.id})
+						if(edgeToAdd)
+						{
+							edgeMap.push(edgeToAdd)
+						}
 
-// async function run()
-// {
-// 	console.log('--- nodes-only START ---');
-// 	var globalfuncs = new GlobalFuncs();
-// 	var graph = [];
-// 	var width = 7;
-// 	var height = 7;
-// 	var xStart = 3;
-// 	var yStart = 3;
+						//do another check to see if its the end node.
+						if(currentFrontierNode.node.id === nodeEnd.id)
+						{
+							nodeFound = true;
+							break;
+						}
+					}
+				}
+			}
+		}
+	}
+
+	//if the node was found, find it in the visited nodes, and work backwards to the start
+	if(nodeFound) {
+
+		var startNodeFound = false;
+		var currentNode = nodeEnd;
+		var tempPathNodes = [];
+		var tempPathEdges = [];
+
+		//first get the actual path from the edges visited from end to start
+		while(!startNodeFound)
+		{
+			//brute force searching method. meh, whatever
+			if(currentNode.id === nodeStart.id)
+			{
+				startNodeFound = true;
+			}
+			else
+			{
+				//there should be exactly 1 edge per node
+				var nextEdge = edgeMap.find((x) => {return x.nodeFrom.id === currentNode.id;});
+				if(nextEdge)
+				{
+					tempPathNodes.push(currentNode);
+					tempPathEdges.push(nextEdge);
 	
-// 	//make a shitty graph
-// 	var graphId = 0;
-// 	for(var i = 0; i < height; i++)
-// 	{
-// 		graph.push([]);
-// 		for(var j = 0; j < width; j++)
-// 		{
-// 			graph[i][j] = {
-// 				id: graphId,
-// 				type: "-",
-// 				x: j,
-// 				y: i
-// 			};
-// 			graphId++;
-// 		}
-// 	}
-
-// 	//start
-// 	graph[yStart][xStart].type = "X";
-
-// 	//walls
-// 	// graph[1][5].type = "W"
-// 	// graph[2][5].type = "W"
-// 	// graph[2][6].type = "W"
-
-// 	// graph[2][1].type = "W"
-// 	// graph[3][2].type = "W"
-
-// 	graph[3][4].type = "W"
-// 	graph[2][4].type = "W"
-	
-// 	drawGraph(graph, xStart, yStart);
-
-
-// 	//////////////////////////////////
-// 	//basic breadth first exploring //
-// 	//////////////////////////////////
-
-// 	// var frontier = [];
-// 	// var reached = [];
-	
-// 	// //start the frontier
-// 	// frontier.push({nodeNum: 0, x: xStart, y: yStart});
-// 	// reached.push({nodeNum: 0, x: xStart, y: yStart});
-
-// 	// var frameNum = 1;
-// 	// var nodeNum = 1;
-
-
-// 	// while(frontier.length > 0)
-// 	// {
-// 	// 	console.log('--- FRAME ' + frameNum + " ---");
-// 	// 	var curr = frontier.shift();
-// 	// 	console.log("curr: i: " + curr.nodeNum + ", x: " + curr.x + ", y: " + curr.y);
-
-// 	// 	var neighbors = getGraphNeighbors(graph, curr.x, curr.y, curr.nodeNum == 0);
-// 	// 	//logNeighbors(neighbors);
-
-// 	// 	for(var i = 0; i < neighbors.length; i++)
-// 	// 	{
-// 	// 		//console.log('now processing neighbor ' + i + ": " + neighbors[i].x + " " + neighbors[i].y);
-// 	// 		var foundNode = reached.find((n) => {return n.x === neighbors[i].x && n.y === neighbors[i].y});
-// 	// 		if(!foundNode)
-// 	// 		{
-// 	// 			frontier.push(neighbors[i]);
-// 	// 			reached.push(neighbors[i]);
-// 	// 			// graph[neighbors[i].y][neighbors[i].x].type = nodeNum;
-// 	// 			// nodeNum++;
-// 	// 		}
-// 	// 	}
-		
-// 	// 	drawGraph(graph, curr.x, curr.y);
-
-// 	// 	frameNum++;
-
-// 	// 	//await sleep(500);
-// 	// }
-
-
-
-// 	//////////////////////////////////
-// 	//came from                     //
-// 	//////////////////////////////////
-// 	var frontier = [];
-// 	var came_from = {};
-// 	var frameNum = 1;
-
-// 	var startNode = graph[yStart][xStart];
-// 	frontier.push(startNode);
-// 	came_from[startNode.id] = null;
-	
-// 	while(frontier.length > 0)
-// 	{
-// 		console.log('--- FRAME ' + frameNum + " ---");
-// 		var curr = frontier.shift();
-// 		console.log("curr: id: " + curr.id + ", x: " + curr.x + ", y: " + curr.y);
-
-// 		var neighbors = getGraphNeighbors(graph, curr.x, curr.y);
-// 		//logNeighbors(neighbors);
-
-// 		for(var i = 0; i < neighbors.length; i++)
-// 		{
-// 			//console.log('now processing neighbor ' + i + ": " + neighbors[i].x + " " + neighbors[i].y);
-// 			// var foundNode = reached.find((n) => {return n.x === neighbors[i].x && n.y === neighbors[i].y});
-
-// 			var asdf = came_from[neighbors[i].node.id];
-// 			if(came_from[neighbors[i].node.id] === undefined)
-// 			{
-// 				frontier.push(neighbors[i].node);
-
-// 				came_from[neighbors[i].node.id] = {fromDir: neighbors[i].fromDir, node: curr};
-// 			}
-// 		}
-		
-// 		//drawGraph(graph, curr.x, curr.y);
-
-// 		frameNum++;
-
-// 		//await sleep(500);
-// 	}
-
-// 	drawGraph(graph);
-// 	drawGraphWithArrows(graph, came_from);
-
-
-// 	var nodeTarget = null;
-// 	nodeTarget = graph[1][6];
-// 	var pathNodes = findPath(graph, came_from, startNode, nodeTarget);
-
-// 	var stopHere = true;
-
-
-// 	console.log('--- came-from-search2 DONE ---');
-// }
-
-
-// function drawWorld(worldTerrain, graphs)
-// {
-
-// }
-
-
-
-
-// function findPath(graph, comeFromMapping, nodeStart, nodeTarget) {
-// 	var nodePath = [];	
-// 	var currentNode = nodeTarget;
-// 	nodePath.push(nodeTarget);
-
-// 	//work backwards from target to start
-// 	while(currentNode !== null)
-// 	{
-// 		if(currentNode == nodeStart)
-// 		{
-// 			break;
-// 		}
-
-// 		var next = comeFromMapping[currentNode.id].node;
-		
-// 		nodePath.push(next);
-// 		currentNode = next;
-// 	}
-
-// 	return nodePath;
-// }
-
-
-// function getGraphNeighbors(graph, x, y)
-// {
-// 	var result = [];
-
-// 	//north neighbor
-// 	if(((y-1) >= 0) && ((y-1) < graph.length) && (x >= 0) && (x < graph[(y-1)].length) && graph[y-1][x] !== "W")
-// 	{
-// 		result.push({fromDir: 'S', node: graph[y-1][x]});
-// 	}
-// 	//east neighbor
-// 	if((y >= 0) && (y < graph.length) && ((x+1) >= 0) && ((x+1) < graph[y].length) && graph[y][x+1] !== "W")
-// 	{
-// 		result.push({fromDir: 'W', node: graph[y][x+1]});
-// 	}
-
-// 	//south neighbor
-// 	if(((y+1) >= 0) && ((y+1) < graph.length) && (x >= 0) && (x < graph[(y+1)].length) && graph[y+1][x] !== "W")
-// 	{
-// 		result.push({fromDir: 'N', node: graph[y+1][x]});
-// 	}
-
-// 	//west neighbor
-// 	if((y >= 0) && (y < graph.length) && ((x-1) >= 0) && ((x-1) < graph[y].length) && graph[y][x-1] !== "W")
-// 	{
-// 		result.push({fromDir: 'E', node: graph[y][x-1]});
-// 	}
-
-// 	return result;
-// }
-
-
-// //probably going to do it again so...whatevr
-// function logNeighbors(neighbors) {
-// 	console.log('Neighbors: ')
-// 	for(var i = 0; i < neighbors.length; i++)
-// 	{
-// 		console.log(neighbors[i].x + " " + neighbors[i].y);
-// 	}
-// }
-
-
-
-
-// //draw a shitty map
-// function drawGraph(graph, nodeXHighlight, nodeYHighlight) {
-// 	var str = "";
-
-// 	for(var i = 0; i < graph.length; i++)
-// 	{
-// 		//x axis
-// 		if(i == 0)
-// 		{
-// 			str += "\t\t";
-// 			for(var k = 0; k < graph[i].length; k++)
-// 			{
-// 				str += k + "\t";
-// 			}
-// 			str += "\n\n";
-// 		}
-
-// 		//y axis
-// 		str += i + "\t\t";
-
-// 		for(var j = 0; j < graph[i].length; j++)
-// 		{
-// 			//hahahaha
-// 			var token = "";
-// 			if(i === nodeYHighlight && j === nodeXHighlight)
-// 			{
-// 				token = "(" + graph[i][j].type.toString() + ")";
-// 			}
-// 			else
-// 			{
-// 				token = graph[i][j].type.toString();
-// 			}
-// 			str += token + "\t";
-// 		}
-// 		str += "\n";
-// 	}
-
-// 	console.log(str);
-// }
-
-
-
-// //draw a shitty map
-// function drawGraphWithArrows(graph, cameFromMapping, nodeXHighlight, nodeYHighlight) {
-// 	var str = "";
-
-	
-// 	for(var i = 0; i < graph.length; i++)
-// 	{
-// 		//x axis
-// 		if(i == 0)
-// 		{
-// 			str += "\t\t";
-// 			for(var k = 0; k < graph[i].length; k++)
-// 			{
-// 				str += k + "\t";
-// 			}
-// 			str += "\n\n";
-// 		}
-
-// 		//y axis
-// 		str += i + "\t\t";
-
-// 		for(var j = 0; j < graph[i].length; j++)
-// 		{
-// 			//hahahaha
-// 			var token = "";
-// 			var temp = cameFromMapping[graph[i][j].id];
-// 			if(temp)
-// 			{
-// 				token = temp.fromDir;
-// 			}
-// 			else
-// 			{
-// 				token = graph[i][j].type.toString();
-// 			}
-
-// 			str += token + "\t";
-// 		}
-// 		str += "\n";
-// 	}
-
-// 	console.log(str);
-// }
-
+					currentNode = nextEdge.nodeTo;
+				}
+			}
+		}
+
+
+		//now that we have the path, reverse the nodes/edges so that we can rebuild it from start to end
+		for(var i = tempPathEdges.length-1; i >= 0; i--)
+		{
+			path.nodes.push(tempPathEdges[i].nodeTo);
+
+			//find the edge that is the opposite way
+			var oppositeEdge = edges.find((x) => {return x.nodeTo === tempPathEdges[i].nodeFrom && x.nodeFrom === tempPathEdges[i].nodeTo});
+			if(oppositeEdge)
+			{
+				path.edges.push(oppositeEdge);
+			}
+		}
+	}
+
+	//debugging
+	path.edgeMap = edgeMap;
+
+	return path;
+}
 
 
 
