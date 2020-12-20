@@ -135,8 +135,8 @@ async function run()
 	makeWorldBlockType(world, nodes[0][21], nodes[4][22], 'wall');
 	makeWorldBlockType(world, nodes[5][21], nodes[7][25], 'wall');
 
-	//makeWorldBlockType(world, nodes[4][7], nodes[5][9], 'water');
-	makeWorldBlockType(world, nodes[5][6], nodes[5][10], 'water');
+	makeWorldBlockType(world, nodes[4][7], nodes[5][9], 'water');
+	//makeWorldBlockType(world, nodes[5][6], nodes[5][10], 'water');
 
 	console.log("WORLD:");
 	drawWorld(world, nodes);
@@ -152,17 +152,17 @@ async function run()
 	// console.log("BREADTH FIRST SEARCH:");
 	// drawWorld(world, nodes, searchResults.edges);
 
-	var searchResults = breadthFirstSearch(world, nodes, edges, startNode, nodes[4][23]);
-	console.log("BREADTH FIRST SEARCH:");
-	drawWorld(world, nodes, searchResults.edges);
+	// var searchResults = breadthFirstSearch(world, nodes, edges, startNode, nodes[4][23]);
+	// console.log("BREADTH FIRST SEARCH:");
+	// drawWorld(world, nodes, searchResults.edges);
 
 	// var searchResults = dijkstraSearch(world, nodes, edges, startNode, nodes[3][8]);
 	// console.log("DIJKSTRA SEARCH:");
-	// drawWorld(world, nodes, searchResults.edgeMap);
+	// drawWorld(world, nodes, searchResults.edges);
 
-	var searchResults = greedyBestFirstSearch(world, nodes, edges, startNode,  nodes[4][23]);
-	console.log("GREEDY BEST FIRST SEARCH:");
-	drawWorld(world, nodes, searchResults.edges);
+	// var searchResults = greedyBestFirstSearch(world, nodes, edges, startNode,  nodes[4][23]);
+	// console.log("GREEDY BEST FIRST SEARCH:");
+	// drawWorld(world, nodes, searchResults.edges);
 
 
 
@@ -444,48 +444,9 @@ function breadthFirstSearch(world, nodes, edges, nodeStart, nodeEnd)
 
 	//if the node was found, find it in the visited nodes, and work backwards to the start
 	if(nodeFound) {
-
-		var startNodeFound = false;
-		var currentNode = nodeEnd;
-		var tempPathNodes = [];
-		var tempPathEdges = [];
-
-		//first get the actual path from the edges visited from end to start
-		while(!startNodeFound)
-		{
-			//brute force searching method. meh, whatever
-			if(currentNode.id === nodeStart.id)
-			{
-				startNodeFound = true;
-			}
-			else
-			{
-				//there should be exactly 1 edge per node
-				var nextEdge = edgeMap.find((x) => {return x.nodeFrom.id === currentNode.id;});
-				if(nextEdge)
-				{
-					tempPathNodes.push(currentNode);
-					tempPathEdges.push(nextEdge);
-	
-					currentNode = nextEdge.nodeTo;
-				}
-			}
-		}
-
-
-		//now that we have the path, reverse the nodes/edges so that we can rebuild it from start to end
-		for(var i = tempPathEdges.length-1; i >= 0; i--)
-		{
-			path.nodes.push(tempPathEdges[i].nodeTo);
-
-			//find the edge that is the opposite way
-			var oppositeEdge = edges.find((x) => {return x.nodeTo === tempPathEdges[i].nodeFrom && x.nodeFrom === tempPathEdges[i].nodeTo});
-			if(oppositeEdge)
-			{
-				path.edges.push(oppositeEdge);
-			}
-		}
+		path = getPathFromEdgeMap(edgeMap, edges, nodeStart, nodeEnd);
 	}
+
 
 	//debugging
 	path.edgeMap = edgeMap;
@@ -580,47 +541,7 @@ function dijkstraSearch(world, nodes, edges, nodeStart, nodeEnd)
 
 	//if the node was found, find it in the visited nodes, and work backwards to the start
 	if(nodeFound) {
-
-		var startNodeFound = false;
-		var currentNode = nodeEnd;
-		var tempPathNodes = [];
-		var tempPathEdges = [];
-
-		//first get the actual path from the edges visited from end to start
-		while(!startNodeFound)
-		{
-			//brute force searching method. meh, whatever
-			if(currentNode.id === nodeStart.id)
-			{
-				startNodeFound = true;
-			}
-			else
-			{
-				//there should be exactly 1 edge per node
-				var nextEdge = edgeMap.find((x) => {return x.nodeFrom.id === currentNode.id;});
-				if(nextEdge)
-				{
-					tempPathNodes.push(currentNode);
-					tempPathEdges.push(nextEdge);
-	
-					currentNode = nextEdge.nodeTo;
-				}
-			}
-		}
-
-
-		//now that we have the path, reverse the nodes/edges so that we can rebuild it from start to end
-		for(var i = tempPathEdges.length-1; i >= 0; i--)
-		{
-			path.nodes.push(tempPathEdges[i].nodeTo);
-
-			//find the edge that is the opposite way
-			var oppositeEdge = edges.find((x) => {return x.nodeTo === tempPathEdges[i].nodeFrom && x.nodeFrom === tempPathEdges[i].nodeTo});
-			if(oppositeEdge)
-			{
-				path.edges.push(oppositeEdge);
-			}
-		}
+		path = getPathFromEdgeMap(edgeMap, edges, nodeStart, nodeEnd);
 	}
 
 	//debugging
@@ -628,6 +549,61 @@ function dijkstraSearch(world, nodes, edges, nodeStart, nodeEnd)
 
 	return path;
 }
+
+
+function getPathFromEdgeMap(edgeMap, allEdges, nodeStart, nodeEnd) {
+	var path = {
+		nodes: [],
+		edges: []
+	};
+
+	var startNodeFound = false;
+	var currentNode = nodeEnd;
+	var tempPathNodes = [];
+	var tempPathEdges = [];
+
+	//first get the actual path from the edges visited from end to start
+	while(!startNodeFound)
+	{
+		//brute force searching method. meh, whatever
+		if(currentNode.id === nodeStart.id)
+		{
+			startNodeFound = true;
+		}
+		else
+		{
+			//there should be exactly 1 edge per node
+			var nextEdge = edgeMap.find((x) => {return x.nodeFrom.id === currentNode.id;});
+			if(nextEdge)
+			{
+				tempPathNodes.push(currentNode);
+				tempPathEdges.push(nextEdge);
+
+				currentNode = nextEdge.nodeTo;
+			}
+		}
+	}
+
+
+	//now that we have the path, reverse the nodes/edges so that we can rebuild it from start to end
+	for(var i = tempPathEdges.length-1; i >= 0; i--)
+	{
+		path.nodes.push(tempPathEdges[i].nodeTo);
+
+		//find the edge that is the opposite way
+		var oppositeEdge = allEdges.find((x) => {return x.nodeTo === tempPathEdges[i].nodeFrom && x.nodeFrom === tempPathEdges[i].nodeTo});
+		if(oppositeEdge)
+		{
+			path.edges.push(oppositeEdge);
+		}
+	}
+
+	return path;
+}
+
+
+
+
 
 //returns the nodes and edges from start to the end using greedy best first searching
 function greedyBestFirstSearch(world, nodes, edges, nodeStart, nodeEnd)
@@ -704,47 +680,7 @@ function greedyBestFirstSearch(world, nodes, edges, nodeStart, nodeEnd)
 
 	//if the node was found, find it in the visited nodes, and work backwards to the start
 	if(nodeFound) {
-
-		var startNodeFound = false;
-		var currentNode = nodeEnd;
-		var tempPathNodes = [];
-		var tempPathEdges = [];
-
-		//first get the actual path from the edges visited from end to start
-		while(!startNodeFound)
-		{
-			//brute force searching method. meh, whatever
-			if(currentNode.id === nodeStart.id)
-			{
-				startNodeFound = true;
-			}
-			else
-			{
-				//there should be exactly 1 edge per node
-				var nextEdge = edgeMap.find((x) => {return x.nodeFrom.id === currentNode.id;});
-				if(nextEdge)
-				{
-					tempPathNodes.push(currentNode);
-					tempPathEdges.push(nextEdge);
-	
-					currentNode = nextEdge.nodeTo;
-				}
-			}
-		}
-
-
-		//now that we have the path, reverse the nodes/edges so that we can rebuild it from start to end
-		for(var i = tempPathEdges.length-1; i >= 0; i--)
-		{
-			path.nodes.push(tempPathEdges[i].nodeTo);
-
-			//find the edge that is the opposite way
-			var oppositeEdge = edges.find((x) => {return x.nodeTo === tempPathEdges[i].nodeFrom && x.nodeFrom === tempPathEdges[i].nodeTo});
-			if(oppositeEdge)
-			{
-				path.edges.push(oppositeEdge);
-			}
-		}
+		path = getPathFromEdgeMap(edgeMap, edges, nodeStart, nodeEnd);
 	}
 
 	//debugging
